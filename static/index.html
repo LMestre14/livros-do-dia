@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Livros do Dia — Feira do Livro Lisboa</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#b91c1c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Livros do Dia" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #c0392b; --cream: #fdf6ed; --green: #27ae60; --gold: #f39c12;
+      --dark: #1a1a1a; --muted: #6b6b6b; --shadow: 0 4px 18px rgba(0,0,0,.09); --radius: 14px;
+    }
+    body { font-family: 'Georgia', serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+
+    header { background: var(--red); color: #fff; padding: 20px 20px 16px; text-align: center; }
+    header h1 { font-size: clamp(1.2rem, 4vw, 1.8rem); letter-spacing: .03em; }
+    header p  { margin-top: 4px; font-size: .85rem; opacity: .85; font-style: italic; }
+
+    .toolbar {
+      background: #fff; border-bottom: 1px solid #e8ddd0;
+      padding: 12px 16px; position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .date-picker {
+      flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 8px;
+      border: 1.5px solid #d0c4b8; font-size: .9rem; background: #fff;
+      font-family: inherit; cursor: pointer;
+    }
+    .date-picker:focus { outline: none; border-color: var(--red); }
+    .search-box {
+      flex: 2; min-width: 120px; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #ddd; font-size: .9rem; background: #fff;
+    }
+    .filter-btns { display: flex; gap: 6px; }
+    .filter-btn {
+      padding: 8px 12px; border-radius: 8px; border: 1.5px solid #d0c4b8;
+      background: #fff; font-size: .8rem; cursor: pointer; font-family: inherit; transition: all .15s;
+    }
+    .filter-btn.wishlist.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .filter-btn.bought.active  { background: var(--green); border-color: var(--green); color: #fff; }
+
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px; max-width: 1400px; margin: 16px auto 40px; padding: 0 16px;
+    }
+    @media (min-width: 600px) { .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+
+    .card {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      overflow: hidden; display: flex; flex-direction: column; position: relative;
+      cursor: pointer; transition: transform .18s, box-shadow .18s;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.14); }
+    .card-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #eee; display: block; }
+    .no-cover { width: 100%; aspect-ratio: 2/3; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; background: #f5ede2; color: #ccc; }
+    .card-body { padding: 10px 12px 12px; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .card-title  { font-size: .88rem; font-weight: bold; line-height: 1.25; }
+    .card-author { font-size: .78rem; color: var(--muted); font-style: italic; }
+    .card-pub    { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .card-stand  { font-size: .72rem; font-weight: 600; margin-top: 3px; }
+
+    .prices { margin-top: auto; padding-top: 8px; border-top: 1px solid #f0e8dc; display: flex; flex-direction: column; gap: 2px; }
+    .price-row { display: flex; justify-content: space-between; align-items: baseline; font-size: .75rem; }
+    .price-label { color: var(--muted); }
+    .price-val { font-weight: 600; }
+    .price-val.struck { text-decoration: line-through; color: #bbb; font-weight: 400; }
+    .price-val.green  { color: var(--green); font-size: .9rem; }
+
+    .card-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .action-btn {
+      flex: 1; padding: 7px 4px; border-radius: 6px; border: 1.5px solid #ddd;
+      background: #fff; font-size: .68rem; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 3px; transition: all .15s;
+    }
+    .action-btn:hover { border-color: #aaa; }
+    .action-btn.wishlist.active { background: #fef3e2; border-color: var(--gold); color: #b5760a; }
+    .action-btn.bought.active   { background: #e8f8ed; border-color: var(--green); color: #1d8348; }
+
+    .status-badge {
+      position: absolute; top: 8px; right: 8px; padding: 3px 7px;
+      border-radius: 4px; font-size: .62rem; font-weight: 700; text-transform: uppercase; pointer-events: none;
+    }
+    .status-badge.wishlist { background: var(--gold); color: #fff; }
+    .status-badge.bought   { background: var(--green); color: #fff; }
+
+    .state-msg { text-align: center; padding: 50px 20px; font-size: .95rem; color: var(--muted); grid-column: 1/-1; }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid #ddd; border-top-color: var(--red); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-more { grid-column: 1/-1; text-align: center; padding: 20px; font-size: .85rem; color: var(--muted); }
+
+    /* ── DETAIL MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--cream); border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 680px; max-height: 92vh;
+      overflow-y: auto; padding: 0 0 32px;
+      transform: translateY(40px); transition: transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-drag { width: 40px; height: 4px; background: #d0c4b8; border-radius: 2px; margin: 12px auto 0; }
+    .modal-close {
+      position: sticky; top: 0; display: flex; justify-content: flex-end;
+      padding: 10px 16px 0; background: var(--cream); z-index: 1;
+    }
+    .modal-close button {
+      background: none; border: none; font-size: 1.4rem; cursor: pointer;
+      color: var(--muted); line-height: 1; padding: 4px 8px;
+    }
+    .modal-hero { display: flex; gap: 16px; padding: 0 20px 20px; }
+    .modal-cover { width: 110px; flex-shrink: 0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+    .modal-cover img, .modal-cover .no-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; font-size: 2rem; }
+    .modal-meta { flex: 1; display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
+    .modal-title  { font-size: 1.05rem; font-weight: bold; line-height: 1.3; }
+    .modal-author { font-size: .88rem; color: var(--muted); font-style: italic; }
+    .modal-pub    { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .modal-action-btn {
+      flex: 1; padding: 9px 8px; border-radius: 8px; border: 1.5px solid #ddd;
+      background: #fff; font-size: .8rem; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 5px; transition: all .15s;
+    }
+    .modal-action-btn.wishlist.active { background: #fef3e2; border-color: var(--gold); color: #b5760a; font-weight: 600; }
+    .modal-action-btn.bought.active   { background: #e8f8ed; border-color: var(--green); color: #1d8348; font-weight: 600; }
+
+    .modal-section { padding: 16px 20px 0; }
+    .modal-section h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 10px; }
+
+    .modal-prices { display: flex; flex-direction: column; gap: 6px; }
+    .modal-price-row { display: flex; justify-content: space-between; font-size: .9rem; }
+    .modal-price-row .lbl { color: var(--muted); }
+    .modal-price-row .val { font-weight: 600; }
+    .modal-price-row .val.struck { text-decoration: line-through; color: #bbb; font-weight: 400; }
+    .modal-price-row .val.green  { color: var(--green); font-size: 1rem; }
+
+    .date-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .date-pill {
+      padding: 5px 12px; border-radius: 20px; font-size: .78rem;
+      background: #f0e8dc; color: #7a5a3a; border: 1px solid #e0d0c0;
+    }
+    .date-pill.today { background: #fde8e6; color: var(--red); border-color: var(--red); font-weight: 700; }
+
+    .stand-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .stand-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border: 1.5px solid #e8ddd0; border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .stand-pill-icon { font-size: 1.2rem; }
+    .stand-pill-label { font-size: .72rem; color: var(--muted); }
+    .stand-pill-number { font-size: 1.1rem; font-weight: bold; color: var(--red); }
+
+    .map-wrap { position: relative; border-radius: 10px; overflow: hidden; }
+    .map-img { width: 100%; display: block; }
+    .map-pin {
+      position: absolute; transform: translate(-50%, -100%);
+      pointer-events: none; display: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+    }
+    .map-pin.visible { display: block; }
+    .map-pin-pulse {
+      position: absolute; width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(192,57,43,.35); transform: translate(-50%, -50%);
+      top: 100%; left: 50%; margin-top: -5px;
+      animation: pulse 1.6s ease-out infinite;
+    }
+    @keyframes pulse {
+      0%   { transform: translate(-50%,-50%) scale(.6); opacity: .9; }
+      100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
+    }
+
+    footer { text-align: center; padding: 14px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0; }
+    footer a { color: var(--red); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📚 Feira do Livro de Lisboa 2026</h1>
+  <p>Livros do Dia — desconto especial</p>
+</header>
+
+<div class="toolbar">
+  <select class="date-picker" id="date-picker">
+    <option value="">Todos os dias</option>
+  </select>
+  <input class="search-box" type="search" id="search" placeholder="Pesquisar título ou autor…" />
+  <div class="filter-btns">
+    <button class="filter-btn wishlist" id="filter-wishlist">⭐ Lista</button>
+    <button class="filter-btn bought" id="filter-bought">✓ Comprados</button>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  Dados de <a href="https://feiradolivrodelisboa.pt" target="_blank" rel="noopener">feiradolivrodelisboa.pt</a>
+</footer>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal" id="modal">
+    <div class="modal-drag"></div>
+    <div class="modal-close"><button id="modal-close-btn" aria-label="Fechar">✕</button></div>
+
+    <div class="modal-hero">
+      <div class="modal-cover" id="modal-cover"></div>
+      <div class="modal-meta">
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-author" id="modal-author"></div>
+        <div class="modal-pub" id="modal-pub"></div>
+        <div class="modal-actions">
+          <button class="modal-action-btn wishlist" id="modal-btn-wishlist">⭐ Lista</button>
+          <button class="modal-action-btn bought" id="modal-btn-bought">✓ Comprado</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Preços</h3>
+      <div class="modal-prices" id="modal-prices"></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Livro do Dia</h3>
+      <div class="date-pills" id="modal-dates"></div>
+    </div>
+
+    <div class="modal-section" id="modal-stand-section">
+      <h3>Pavilhão</h3>
+      <div class="stand-list" id="modal-stand-list"></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Mapa da Feira</h3>
+      <div class="map-wrap" id="map-wrap">
+        <img class="map-img" id="map-img"
+          src="https://feiradolivrodelisboa.pt/_fll/wp-content/themes/feiradolivrodelisboa/assets/imgs/mapa2026_v5.svg"
+          alt="Mapa da Feira do Livro 2026" loading="lazy" />
+        <!-- Pin overlay — positioned by JS using the same formula as mapa.js -->
+        <div class="map-pin" id="map-pin">
+          <svg width="28" height="40" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 0C6.27 0 0 6.27 0 14c0 9.6 14 26 14 26S28 23.6 28 14C28 6.27 21.73 0 14 0z" fill="#c0392b"/>
+            <circle cx="14" cy="14" r="6" fill="#fff"/>
+          </svg>
+          <div class="map-pin-pulse"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const grid = document.getElementById('grid');
+const datePicker = document.getElementById('date-picker');
+const searchEl = document.getElementById('search');
+const filterWishlist = document.getElementById('filter-wishlist');
+const filterBought = document.getElementById('filter-bought');
+const modalOverlay = document.getElementById('modal-overlay');
+
+// ── State ──
+let books = [], offset = 0, hasMore = true, loading = false;
+let selectedDate = '', searchTerm = '';
+let showWishlistOnly = false, showBoughtOnly = false;
+let searchDebounceTimer = null;
+let currentModalBook = null;
+
+// ── LocalStorage ──
+const STORAGE_KEY = 'fll_user_data';
+function loadUserData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { wishlist:{}, bought:{}, cachedBooks:{} }; }
+  catch { return { wishlist:{}, bought:{}, cachedBooks:{} }; }
+}
+function saveUserData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(userData)); }
+let userData = loadUserData();
+
+// ── Helpers ──
+const todayStr = new Date().toLocaleDateString('sv-SE');
+function fmt(n) { return n.toFixed(2).replace('.', ',') + '\u00a0€'; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const PT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const PT_WDAYS  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${PT_WDAYS[d.getDay()]} ${d.getDate()} ${PT_MONTHS[d.getMonth()]}`;
+}
+function cacheBook(b) { userData.cachedBooks[b.id] = b; saveUserData(); }
+
+// ── Toggle wishlist / bought ──
+function toggleWishlist(id) {
+  const b = books.find(x => x.id === id) || userData.cachedBooks[id];
+  if (userData.wishlist[id]) { delete userData.wishlist[id]; }
+  else { userData.wishlist[id] = true; if (b) cacheBook(b); }
+  saveUserData();
+  if (currentModalBook?.id === id) openModal(currentModalBook);
+  refreshGrid();
+}
+function toggleBought(id) {
+  const b = books.find(x => x.id === id) || userData.cachedBooks[id];
+  if (userData.bought[id]) { delete userData.bought[id]; }
+  else { userData.bought[id] = true; if (b) cacheBook(b); }
+  saveUserData();
+  if (currentModalBook?.id === id) openModal(currentModalBook);
+  refreshGrid();
+}
+
+// ── Date picker ──
+async function buildDatePicker() {
+  try {
+    const res = await fetch('/api/dates');
+    const data = await res.json();
+    if (!data.ok || !data.dates) return;
+    data.dates.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = fmtDate(d) + (d === todayStr ? ' (hoje)' : '');
+      datePicker.appendChild(opt);
+    });
+    if (data.dates.includes(todayStr)) { datePicker.value = todayStr; selectedDate = todayStr; }
+  } catch (e) { console.error('dates error', e); }
+}
+
+// ── Card rendering ──
+function makeCard(b) {
+  const card = document.createElement('div');
+  card.className = 'card'; card.dataset.bookId = b.id;
+  const isWishlist = !!userData.wishlist[b.id], isBought = !!userData.bought[b.id];
+  const badge = isBought ? '<span class="status-badge bought">Comprado</span>'
+              : isWishlist ? '<span class="status-badge wishlist">Lista</span>' : '';
+  const img = b.cover_jpg
+    ? `<img class="card-img" src="${esc(b.cover_jpg)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
+    : `<div class="no-cover">📖</div>`;
+  const hasDia = b.pvp_dia > 0, hasFeira = b.pvp_feira > 0;
+  let prices = '<div class="prices">';
+  if (b.pvp > 0) prices += `<div class="price-row"><span class="price-label">PVP</span><span class="price-val ${hasFeira||hasDia?'struck':''}">${fmt(b.pvp)}</span></div>`;
+  if (hasFeira && hasDia)  prices += `<div class="price-row"><span class="price-label">Feira</span><span class="price-val struck">${fmt(b.pvp_feira)}</span></div>`;
+  if (hasFeira && !hasDia) prices += `<div class="price-row"><span class="price-label">Feira</span><span class="price-val green">${fmt(b.pvp_feira)}</span></div>`;
+  if (hasDia) prices += `<div class="price-row"><span class="price-label">Livro do Dia</span><span class="price-val green">${fmt(b.pvp_dia)}</span></div>`;
+  prices += '</div>';
+  card.innerHTML = `${badge}${img}
+    <div class="card-body">
+      <div class="card-title">${esc(b.title)}</div>
+      <div class="card-author">${esc(b.author)}</div>
+      <div class="card-pub">${esc(b.chancela||b.publisher)}</div>
+      ${b.stand ? `<div class="card-stand">📍 ${esc(b.stand.split(',')[0].trim())}</div>` : ''}
+      ${prices}
+      <div class="card-actions">
+        <button class="action-btn wishlist${isWishlist?' active':''}" data-action="wishlist" data-id="${b.id}">⭐ Lista</button>
+        <button class="action-btn bought${isBought?' active':''}" data-action="bought" data-id="${b.id}">✓ Comprado</button>
+      </div>
+    </div>`;
+  return card;
+}
+
+function refreshGrid() {
+  // Re-render existing cards in place (status badges & button states)
+  document.querySelectorAll('.card[data-book-id]').forEach(card => {
+    const id = card.dataset.bookId;
+    const b = books.find(x => x.id === id) || userData.cachedBooks[id];
+    if (!b) return;
+    const fresh = makeCard(b);
+    card.replaceWith(fresh);
+  });
+}
+
+// ── Render list ──
+function renderBooks(append = false) {
+  if (!append) grid.innerHTML = '';
+  let list = showWishlistOnly || showBoughtOnly ? books
+    : books;
+  list.forEach(b => {
+    if (append && document.querySelector(`[data-book-id="${b.id}"]`)) return;
+    grid.appendChild(makeCard(b));
+  });
+  const old = document.getElementById('load-more');
+  if (old) old.remove();
+  if (!list.length && !loading) {
+    grid.innerHTML = `<p class="state-msg">${showWishlistOnly||showBoughtOnly?'Nenhum livro marcado.':'Nenhum resultado encontrado.'}</p>`;
+    return;
+  }
+  if (hasMore && !showWishlistOnly && !showBoughtOnly) {
+    const el = document.createElement('div');
+    el.className = 'load-more'; el.id = 'load-more';
+    el.innerHTML = loading ? '<span class="spinner"></span>' : '';
+    grid.appendChild(el);
+  }
+}
+
+// ── Fetch ──
+async function fetchBooks(reset = false) {
+  if (loading || (!reset && !hasMore)) return;
+  if (reset) { offset = 0; hasMore = true; books = []; grid.innerHTML = '<div class="state-msg"><span class="spinner"></span> A carregar…</div>'; }
+  loading = true; renderBooks();
+  try {
+    const params = new URLSearchParams({ offset });
+    if (selectedDate) params.set('day', selectedDate);
+    if (searchTerm)   params.set('search', searchTerm);
+    const data = await fetch('/api/books?' + params).then(r => r.json());
+    if (!data.ok) throw new Error(data.error);
+    const seen = new Set(books.map(b => b.id));
+    const fresh = data.books.filter(b => !seen.has(b.id));
+    books = [...books, ...fresh];
+    data.books.forEach(cacheBook);
+    hasMore = data.has_more; offset += data.count;
+  } catch (e) {
+    if (books.length === 0) grid.innerHTML = `<p class="state-msg">⚠️ ${esc(e.message)}</p>`;
+  } finally {
+    loading = false; renderBooks(true);
+  }
+}
+
+function showCachedBooks(filter) {
+  const ids = Object.keys(filter === 'wishlist' ? userData.wishlist : userData.bought);
+  books = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+  hasMore = false; renderBooks();
+}
+
+// ── Infinite scroll ──
+function setupInfiniteScroll() {
+  const io = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !loading && hasMore && !showWishlistOnly && !showBoughtOnly) fetchBooks();
+  }, { rootMargin: '200px' });
+  new MutationObserver(() => { const el = document.getElementById('load-more'); if (el) io.observe(el); })
+    .observe(grid, { childList: true });
+}
+
+// ── Stand map coordinate lookup (ported from feiradolivrodelisboa.pt/mapa.js) ──
+// Each row: [letter, parity(odd=1/even=0), minStand, maxStand, x, yStart, yEnd]
+// Coordinate space: x → 0‥860, y → 0‥1290  (as % of container)
+const STAND_MAP = [
+  ["a",1,59,75,208,232,326],["a",0,60,74,208,232,326],
+  ["b",1,29,43,253,232,326],["b",0,30,42,253,232,326],
+  ["c",1,19,27,279,232,326],["c",0,20,26,279,232,326],
+  ["d",1,43,49,324,232,326],["d",0,42,48,324,232,326],
+  ["e",1,33,49,540,232,326],["e",0,32,50,540,232,326],
+  ["f",1,19,19,598,232,308],["f",0,18,20,598,232,308],
+  ["h",1,43,57,656,232,326],["h",0,42,58,656,232,326],
+  ["a",1,47,57,208,482,564],["a",0,46,58,208,482,564],
+  ["b",1,17,27,253,482,564],["b",0,18,28,253,482,564],
+  ["c",1,9,17,279,482,564], ["c",0,8,18,279,482,564],
+  ["d",1,33,41,324,482,564],["d",0,34,40,324,482,564],
+  ["e",1,19,31,540,482,564],["e",0,18,30,540,482,564],
+  ["f",1,7,17,586,482,564], ["f",0,6,16,586,482,564],
+  ["g",1,19,29,612,482,564],["g",0,20,30,612,482,564],
+  ["h",1,33,41,656,482,564],["h",0,32,40,656,482,564],
+  ["a",1,27,45,208,718,806],["a",0,28,44,208,718,806],
+  ["b",1,9,15,253,718,806], ["b",0,10,16,253,718,806],
+  ["c",1,1,7,279,718,806],  ["c",0,2,6,279,718,806],
+  ["d",1,15,31,324,718,806],["d",0,14,32,324,718,806],
+  ["e",1,3,17,540,718,806], ["e",0,2,16,540,718,806],
+  ["f",1,1,5,586,718,806],  ["f",0,2,4,586,718,806],
+  ["g",1,15,17,612,718,806],["g",0,14,18,612,718,806],
+  ["h",1,15,31,656,718,806],["h",0,14,30,656,718,806],
+  ["a",1,1,27,208,955,1050],["a",0,2,26,208,955,1050],
+  ["b",1,1,7,253,955,1050], ["b",0,2,8,253,955,1050],
+  ["d",1,3,13,324,955,1008],["d",0,2,12,324,955,1008],
+  ["d",1,1,1,367,1088,1088],
+  ["e",1,1,1,533,927,927],
+  ["g",1,1,13,612,956,1012],["g",0,2,12,612,956,1012],
+  ["h",1,1,13,656,956,1012],["h",0,2,12,656,956,1012],
+  ["e",0,0,0,538,1026,1026],
+];
+
+function standToPercent(standCode) {
+  if (!standCode) return null;
+  const raw = standCode.split(',')[0].trim();  // use first stand if multiple
+  if (raw.toLowerCase() === 'contentor') return null;
+  const letter = raw[0].toLowerCase();
+  const num    = parseInt(raw.slice(1), 10);
+  if (isNaN(num)) return null;
+  const parity = num % 2;
+  const entry  = STAND_MAP.find(e => e[0]===letter && e[1]===parity && e[2]<=num && e[3]>=num);
+  if (!entry) return null;
+  const ratio  = entry[3] !== entry[2] ? Math.min((num - entry[2]) / (entry[3] - entry[2]), 1) : 1;
+  const y      = entry[6] - (entry[6] - entry[5]) * ratio;
+  return { left: entry[4] / 860 * 100, top: y / 1290 * 100 };
+}
+
+function placeMapPin(standCode) {
+  const pin = document.getElementById('map-pin');
+  const pos = standToPercent(standCode);
+  if (!pos) { pin.classList.remove('visible'); return; }
+  pin.style.left = pos.left + '%';
+  pin.style.top  = pos.top  + '%';
+  pin.classList.add('visible');
+}
+
+// ── Modal ──
+function renderStands(stand) {
+  const standSec = document.getElementById('modal-stand-section');
+  const stands = stand ? stand.split(',').map(s => s.trim()).filter(Boolean) : [];
+  if (stands.length) {
+    document.getElementById('modal-stand-list').innerHTML = stands
+      .map(s => `<div class="stand-pill">
+        <div class="stand-pill-icon">📍</div>
+        <div><div class="stand-pill-label">Stand</div><div class="stand-pill-number">${esc(s)}</div></div>
+      </div>`).join('');
+    standSec.style.display = '';
+  } else { standSec.style.display = 'none'; }
+  placeMapPin(stand || '');
+}
+
+function openModal(b) {
+  currentModalBook = b;
+  const isWishlist = !!userData.wishlist[b.id], isBought = !!userData.bought[b.id];
+
+  document.getElementById('modal-cover').innerHTML = b.cover_jpg
+    ? `<img src="${esc(b.cover_jpg)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
+    : `<div class="no-cover">📖</div>`;
+  document.getElementById('modal-title').textContent = b.title;
+  document.getElementById('modal-author').textContent = b.author;
+  document.getElementById('modal-pub').textContent = b.chancela || b.publisher;
+
+  const wBtn = document.getElementById('modal-btn-wishlist');
+  const bBtn = document.getElementById('modal-btn-bought');
+  wBtn.className = `modal-action-btn wishlist${isWishlist?' active':''}`;
+  bBtn.className = `modal-action-btn bought${isBought?' active':''}`;
+  wBtn.onclick = () => toggleWishlist(b.id);
+  bBtn.onclick = () => toggleBought(b.id);
+
+  const hasDia = b.pvp_dia > 0, hasFeira = b.pvp_feira > 0;
+  let ph = '';
+  if (b.pvp > 0)       ph += `<div class="modal-price-row"><span class="lbl">PVP editor</span><span class="val ${hasFeira||hasDia?'struck':''}">${fmt(b.pvp)}</span></div>`;
+  if (hasFeira && hasDia)  ph += `<div class="modal-price-row"><span class="lbl">Preço de feira</span><span class="val struck">${fmt(b.pvp_feira)}</span></div>`;
+  if (hasFeira && !hasDia) ph += `<div class="modal-price-row"><span class="lbl">Preço de feira</span><span class="val green">${fmt(b.pvp_feira)}</span></div>`;
+  if (hasDia) ph += `<div class="modal-price-row"><span class="lbl">Preço do dia</span><span class="val green">${fmt(b.pvp_dia)}</span></div>`;
+  document.getElementById('modal-prices').innerHTML = ph;
+
+  document.getElementById('modal-dates').innerHTML = (b.dates||[])
+    .map(d => `<span class="date-pill${d===todayStr?' today':''}">${fmtDate(d)}</span>`).join('');
+
+  // Show stand from cached data immediately, then update with exact data from API
+  renderStands(b.stand || '');
+
+  modalOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Fetch precise stand list for this book
+  fetch(`/api/book/${encodeURIComponent(b.id)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && currentModalBook && currentModalBook.id === b.id) {
+        renderStands(data.book.stand || '');
+      }
+    })
+    .catch(() => {});
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+  currentModalBook = null;
+}
+
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Events ──
+datePicker.addEventListener('change', () => {
+  selectedDate = datePicker.value;
+  showWishlistOnly = showBoughtOnly = false;
+  filterWishlist.classList.remove('active'); filterBought.classList.remove('active');
+  fetchBooks(true);
+});
+
+searchEl.addEventListener('input', () => {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    const val = searchEl.value.trim();
+    if (val === searchTerm) return;
+    searchTerm = val;
+    showWishlistOnly = showBoughtOnly = false;
+    filterWishlist.classList.remove('active'); filterBought.classList.remove('active');
+    fetchBooks(true);
+  }, 400);
+});
+
+filterWishlist.addEventListener('click', () => {
+  showWishlistOnly = !showWishlistOnly; showBoughtOnly = false;
+  filterWishlist.classList.toggle('active', showWishlistOnly);
+  filterBought.classList.remove('active');
+  showWishlistOnly ? showCachedBooks('wishlist') : fetchBooks(true);
+});
+
+filterBought.addEventListener('click', () => {
+  showBoughtOnly = !showBoughtOnly; showWishlistOnly = false;
+  filterBought.classList.toggle('active', showBoughtOnly);
+  filterWishlist.classList.remove('active');
+  showBoughtOnly ? showCachedBooks('bought') : fetchBooks(true);
+});
+
+grid.addEventListener('click', e => {
+  const btn = e.target.closest('.action-btn');
+  if (btn) {
+    e.stopPropagation();
+    if (btn.dataset.action === 'wishlist') toggleWishlist(btn.dataset.id);
+    else if (btn.dataset.action === 'bought') toggleBought(btn.dataset.id);
+    return;
+  }
+  const card = e.target.closest('.card[data-book-id]');
+  if (card) {
+    const b = books.find(x => x.id === card.dataset.bookId) || userData.cachedBooks[card.dataset.bookId];
+    if (b) openModal(b);
+  }
+});
+
+// ── Init ──
+buildDatePicker();
+setupInfiniteScroll();
+fetchBooks(true);
+
+// ── Service Worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
