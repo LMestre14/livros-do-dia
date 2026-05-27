@@ -37,17 +37,48 @@
       flex: 2; min-width: 120px; padding: 10px 12px; border-radius: 8px;
       border: 1px solid #ddd; font-size: .9rem; background: #fff;
     }
-    .filter-btns { display: flex; gap: 6px; }
-    .filter-btn {
-      padding: 8px 12px; border-radius: 8px; border: 1.5px solid #d0c4b8;
-      background: #fff; font-size: .8rem; cursor: pointer; font-family: inherit; transition: all .15s;
+    /* ── Tab bar ── */
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+      display: flex; background: #fff; border-top: 1px solid #e8ddd0;
+      padding-bottom: env(safe-area-inset-bottom);
     }
-    .filter-btn.wishlist.active { background: var(--gold); border-color: var(--gold); color: #fff; }
-    .filter-btn.bought.active  { background: var(--green); border-color: var(--green); color: #fff; }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 8px 4px; border: none; background: none; cursor: pointer; position: relative;
+      font-family: inherit; color: var(--muted); font-size: .65rem; font-weight: 500; transition: color .15s;
+    }
+    .tab-btn .tab-icon { font-size: 1.35rem; line-height: 1; }
+    .tab-btn.active { color: var(--red); }
+    .tab-btn .tab-badge {
+      position: absolute; top: 6px; right: calc(50% - 18px);
+      background: var(--red); color: #fff; border-radius: 10px;
+      font-size: .6rem; font-weight: 700; padding: 1px 5px; min-width: 16px; text-align: center;
+    }
+
+    /* ── Cached list count ── */
+    #cached-count { display: none; padding: 8px 16px 0; font-size: .8rem; color: var(--muted); }
+
+    /* ── Settings panel ── */
+    #settings-panel { display: none; padding: 24px 20px; max-width: 600px; margin: 0 auto; }
+    #settings-panel h2 { font-size: 1.1rem; margin-bottom: 20px; }
+    .settings-stat {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px; background: #fff; border-radius: var(--radius);
+      border: 1px solid #e8ddd0; margin-bottom: 10px;
+    }
+    .settings-stat-label { font-size: .9rem; }
+    .settings-stat-value { font-size: 1.1rem; font-weight: bold; color: var(--red); }
+    .settings-danger-btn {
+      width: 100%; margin-top: 16px; padding: 14px; border-radius: var(--radius);
+      border: 1.5px solid #e74c3c; background: #fff; color: #e74c3c;
+      font-size: .9rem; font-family: inherit; cursor: pointer; font-weight: 600; transition: all .15s;
+    }
+    .settings-danger-btn:hover { background: #e74c3c; color: #fff; }
 
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 16px; max-width: 1400px; margin: 16px auto 40px; padding: 0 16px;
+      gap: 16px; max-width: 1400px; margin: 16px auto 0; padding: 0 16px 90px;
     }
     @media (min-width: 600px) { .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
 
@@ -179,7 +210,7 @@
       100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
     }
 
-    footer { text-align: center; padding: 14px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0; }
+    footer { text-align: center; padding: 14px 14px 90px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0; }
     footer a { color: var(--red); text-decoration: none; }
   </style>
 </head>
@@ -190,22 +221,51 @@
   <p>Livros do Dia — desconto especial</p>
 </header>
 
-<div class="toolbar">
+<div class="toolbar" id="main-toolbar">
   <select class="date-picker" id="date-picker">
     <option value="">Todos os dias</option>
   </select>
   <input class="search-box" type="search" id="search" placeholder="Pesquisar título ou autor…" />
-  <div class="filter-btns">
-    <button class="filter-btn wishlist" id="filter-wishlist">⭐ Lista</button>
-    <button class="filter-btn bought" id="filter-bought">✓ Comprados</button>
-  </div>
 </div>
 
+<div id="cached-count"></div>
 <div class="grid" id="grid"></div>
 
-<footer>
+<footer id="home-footer">
   Dados de <a href="https://feiradolivrodelisboa.pt" target="_blank" rel="noopener">feiradolivrodelisboa.pt</a>
 </footer>
+
+<!-- SETTINGS PANEL -->
+<div id="settings-panel">
+  <h2>Definições</h2>
+  <div class="settings-stat">
+    <span class="settings-stat-label">⭐ Na lista</span>
+    <span class="settings-stat-value" id="settings-wishlist-count">0</span>
+  </div>
+  <div class="settings-stat">
+    <span class="settings-stat-label">✓ Comprados</span>
+    <span class="settings-stat-value" id="settings-bought-count">0</span>
+  </div>
+  <button class="settings-danger-btn" id="settings-clear-btn">🗑 Limpar todos os dados</button>
+</div>
+
+<!-- TAB BAR -->
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="home">
+    <span class="tab-icon">🏠</span>Home
+  </button>
+  <button class="tab-btn" data-tab="wishlist">
+    <span class="tab-icon">⭐</span>Lista
+    <span class="tab-badge" id="tab-wishlist-badge" style="display:none"></span>
+  </button>
+  <button class="tab-btn" data-tab="bought">
+    <span class="tab-icon">✓</span>Comprados
+    <span class="tab-badge" id="tab-bought-badge" style="display:none"></span>
+  </button>
+  <button class="tab-btn" data-tab="settings">
+    <span class="tab-icon">⚙️</span>Definições
+  </button>
+</nav>
 
 <!-- DETAIL MODAL -->
 <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
@@ -264,14 +324,13 @@
 const grid = document.getElementById('grid');
 const datePicker = document.getElementById('date-picker');
 const searchEl = document.getElementById('search');
-const filterWishlist = document.getElementById('filter-wishlist');
-const filterBought = document.getElementById('filter-bought');
 const modalOverlay = document.getElementById('modal-overlay');
 
 // ── State ──
 let books = [], offset = 0, hasMore = true, loading = false;
 let selectedDate = '', searchTerm = '';
 let showWishlistOnly = false, showBoughtOnly = false;
+let activeTab = 'home';
 let searchDebounceTimer = null;
 let currentModalBook = null;
 
@@ -301,7 +360,7 @@ function toggleWishlist(id) {
   const b = books.find(x => x.id === id) || userData.cachedBooks[id];
   if (userData.wishlist[id]) { delete userData.wishlist[id]; }
   else { userData.wishlist[id] = true; if (b) cacheBook(b); }
-  saveUserData();
+  saveUserData(); updateBadges();
   if (currentModalBook?.id === id) openModal(currentModalBook);
   refreshGrid();
 }
@@ -309,7 +368,7 @@ function toggleBought(id) {
   const b = books.find(x => x.id === id) || userData.cachedBooks[id];
   if (userData.bought[id]) { delete userData.bought[id]; }
   else { userData.bought[id] = true; if (b) cacheBook(b); }
-  saveUserData();
+  saveUserData(); updateBadges();
   if (currentModalBook?.id === id) openModal(currentModalBook);
   refreshGrid();
 }
@@ -337,8 +396,9 @@ function makeCard(b) {
   const isWishlist = !!userData.wishlist[b.id], isBought = !!userData.bought[b.id];
   const badge = isBought ? '<span class="status-badge bought">Comprado</span>'
               : isWishlist ? '<span class="status-badge wishlist">Lista</span>' : '';
-  const img = b.cover_jpg
-    ? `<img class="card-img" src="${esc(b.cover_jpg)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
+  const coverSrc = b.cover_jpg || b.cover_webp;
+  const img = coverSrc
+    ? `<img class="card-img" src="${esc(coverSrc)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
     : `<div class="no-cover">📖</div>`;
   const hasDia = b.pvp_dia > 0, hasFeira = b.pvp_feira > 0;
   let prices = '<div class="prices">';
@@ -421,8 +481,25 @@ async function fetchBooks(reset = false) {
 
 function showCachedBooks(filter) {
   const ids = Object.keys(filter === 'wishlist' ? userData.wishlist : userData.bought);
-  books = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
-  hasMore = false; renderBooks();
+  const total = ids.map(id => userData.cachedBooks[id]).filter(Boolean).length;
+  let list = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase();
+    list = list.filter(b => b.title.toLowerCase().includes(q) || (b.author||'').toLowerCase().includes(q));
+  }
+  if (selectedDate) {
+    list = list.filter(b => (b.dates || []).includes(selectedDate));
+  }
+  const countEl = document.getElementById('cached-count');
+  countEl.style.display = '';
+  countEl.textContent = `A mostrar ${list.length} de ${total}`;
+  books = list; hasMore = false; renderBooks();
+}
+
+function applyFilters() {
+  if (activeTab === 'home') fetchBooks(true);
+  else if (activeTab === 'wishlist') showCachedBooks('wishlist');
+  else if (activeTab === 'bought')   showCachedBooks('bought');
 }
 
 // ── Infinite scroll ──
@@ -514,8 +591,9 @@ function openModal(b) {
   currentModalBook = b;
   const isWishlist = !!userData.wishlist[b.id], isBought = !!userData.bought[b.id];
 
-  document.getElementById('modal-cover').innerHTML = b.cover_jpg
-    ? `<img src="${esc(b.cover_jpg)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
+  const modalCoverSrc = b.cover_jpg || b.cover_webp;
+  document.getElementById('modal-cover').innerHTML = modalCoverSrc
+    ? `<img src="${esc(modalCoverSrc)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
     : `<div class="no-cover">📖</div>`;
   document.getElementById('modal-title').textContent = b.title;
   document.getElementById('modal-author').textContent = b.author;
@@ -569,9 +647,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // ── Events ──
 datePicker.addEventListener('change', () => {
   selectedDate = datePicker.value;
-  showWishlistOnly = showBoughtOnly = false;
-  filterWishlist.classList.remove('active'); filterBought.classList.remove('active');
-  fetchBooks(true);
+  applyFilters();
 });
 
 searchEl.addEventListener('input', () => {
@@ -580,24 +656,64 @@ searchEl.addEventListener('input', () => {
     const val = searchEl.value.trim();
     if (val === searchTerm) return;
     searchTerm = val;
-    showWishlistOnly = showBoughtOnly = false;
-    filterWishlist.classList.remove('active'); filterBought.classList.remove('active');
-    fetchBooks(true);
+    applyFilters();
   }, 400);
 });
 
-filterWishlist.addEventListener('click', () => {
-  showWishlistOnly = !showWishlistOnly; showBoughtOnly = false;
-  filterWishlist.classList.toggle('active', showWishlistOnly);
-  filterBought.classList.remove('active');
-  showWishlistOnly ? showCachedBooks('wishlist') : fetchBooks(true);
+// ── Tab navigation ──
+function updateBadges() {
+  const wCount = Object.keys(userData.wishlist).length;
+  const bCount = Object.keys(userData.bought).length;
+  const wb = document.getElementById('tab-wishlist-badge');
+  const bb = document.getElementById('tab-bought-badge');
+  wb.textContent = wCount; wb.style.display = wCount ? '' : 'none';
+  bb.textContent = bCount; bb.style.display = bCount ? '' : 'none';
+  document.getElementById('settings-wishlist-count').textContent = wCount;
+  document.getElementById('settings-bought-count').textContent = bCount;
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+
+  const toolbar  = document.getElementById('main-toolbar');
+  const footer   = document.getElementById('home-footer');
+  const grid     = document.getElementById('grid');
+  const settings = document.getElementById('settings-panel');
+  const isContent = tab !== 'settings';
+
+  toolbar.style.display  = isContent ? '' : 'none';
+  footer.style.display   = tab === 'home' ? '' : 'none';
+  settings.style.display = isContent ? 'none' : 'block';
+  grid.style.display     = isContent ? '' : 'none';
+
+  if (tab === 'home') {
+    showWishlistOnly = showBoughtOnly = false;
+    document.getElementById('cached-count').style.display = 'none';
+    fetchBooks(true);
+  } else if (tab === 'wishlist') {
+    showWishlistOnly = true; showBoughtOnly = false;
+    selectedDate = ''; datePicker.value = '';
+    showCachedBooks('wishlist');
+  } else if (tab === 'bought') {
+    showBoughtOnly = true; showWishlistOnly = false;
+    selectedDate = ''; datePicker.value = '';
+    showCachedBooks('bought');
+  } else if (tab === 'settings') {
+    updateBadges();
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
-filterBought.addEventListener('click', () => {
-  showBoughtOnly = !showBoughtOnly; showWishlistOnly = false;
-  filterBought.classList.toggle('active', showBoughtOnly);
-  filterWishlist.classList.remove('active');
-  showBoughtOnly ? showCachedBooks('bought') : fetchBooks(true);
+document.getElementById('settings-clear-btn').addEventListener('click', () => {
+  if (!confirm('Apagar lista, comprados e cache de livros?')) return;
+  userData = { wishlist: {}, bought: {}, cachedBooks: {} };
+  saveUserData();
+  updateBadges();
+  switchTab('home');
 });
 
 grid.addEventListener('click', e => {
@@ -616,9 +732,9 @@ grid.addEventListener('click', e => {
 });
 
 // ── Init ──
-buildDatePicker();
 setupInfiniteScroll();
-fetchBooks(true);
+updateBadges();
+buildDatePicker().then(() => fetchBooks(true));
 
 // ── Service Worker ──
 if ('serviceWorker' in navigator) {
