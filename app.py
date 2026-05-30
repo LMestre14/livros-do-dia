@@ -1,6 +1,9 @@
 from flask import Flask, jsonify, request, send_from_directory
 import requests
+import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__, static_folder="static")
 
@@ -11,11 +14,87 @@ HEADERS = {
 }
 LIMIT = 100  # Max per request (tested and works)
 
+# ── Enrichment data (category + synopsis from Bertrand) ──────────────────────
+def _load_enrichment():
+    path = os.path.join(os.path.dirname(__file__), "enrichment.json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"📖 Enrichment loaded: {len(data)} entries")
+        return data
+    print("ℹ️  No enrichment.json found — run build_enrichment.py to generate it")
+    return {}
 
+_enrichment = _load_enrichment()
+
+# ── In-memory cache ──────────────────────────────────────────────────────────
+_cache = {"books": [], "publishers": [], "categories": [], "ready": False}
+_cache_lock = threading.Lock()
+
+
+def _fetch_page(offset):
+    """Fetch a single page of all livros-do-dia (no day/search filter)."""
+    params = {
+        "action": "getSearchedBooks",
+        "livros-do-dia": "1",
+        "invisuais": "0",
+        "offset": offset,
+        "limit": LIMIT,
+    }
+    try:
+        r = requests.get(AJAX_URL, params=params, headers=HEADERS, timeout=15)
+        if r.status_code == 204 or not r.text or r.text.strip() in ("", "0"):
+            return []
+        return r.json()
+    except Exception as e:
+        print(f"Error fetching page at offset {offset}: {e}")
+        return []
+
+
+def _populate_cache():
+    """Fetch all livros-do-dia in parallel and store normalised books in RAM."""
+    try:
+        print("🔄 Populating book cache…")
+        first = _fetch_page(0)
+        if not first:
+            print("❌ Cache: first page returned nothing")
+            return
+
+        all_raw = list(first)
+        offsets = list(range(100, 7100, 100))  # overshoot; empty pages are ignored
+
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            futures = {ex.submit(_fetch_page, o): o for o in offsets}
+            for f in as_completed(futures):
+                batch = f.result()
+                if batch:
+                    all_raw.extend(batch)
+
+        normalised = [normalise_book(b) for b in all_raw]
+
+        # Merge enrichment data (category, parent_category, synopsis) by ISBN
+        for book in normalised:
+            enc = _enrichment.get(book["isbn"], {})
+            book["category"]        = enc.get("category", "")
+            book["parent_category"] = enc.get("parent_category", "")
+            book["synopsis"]        = enc.get("synopsis", "")
+
+        publishers = sorted({b["publisher"] for b in normalised if b["publisher"]})
+        categories = sorted({b["category"]  for b in normalised if b["category"]})
+
+        with _cache_lock:
+            _cache["books"]      = normalised
+            _cache["publishers"] = publishers
+            _cache["categories"] = categories
+            _cache["ready"]      = True
+
+        print(f"✅ Cache ready: {len(normalised)} books, {len(publishers)} publishers, {len(categories)} categories")
+    except Exception as e:
+        print(f"❌ Cache populate failed: {e}")
 
 
 def fetch_books(offset=0, day=None, search=None):
-    """Fetch books from getSearchedBooks endpoint."""
+    """Fetch books from getSearchedBooks endpoint (live fallback)."""
     params = {
         "action": "getSearchedBooks",
         "livros-do-dia": "1",
@@ -70,30 +149,64 @@ def normalise_book(raw):
 
 @app.route("/api/books")
 def api_books():
-    """Fetch books with pagination, optional date filter and optional search."""
+    """Fetch books with pagination, optional date/search/publisher filters."""
     try:
         offset = int(request.args.get("offset", 0))
-        day = request.args.get("day") or None       # Optional: YYYY-MM-DD
-        search = request.args.get("search") or None  # Optional: free-text
+        day       = request.args.get("day")       or None
+        search    = request.args.get("search")    or None
+        publisher = request.args.get("publisher") or None
 
+        if _cache["ready"]:
+            books = _cache["books"]
+            if day:
+                books = [b for b in books if day in b["dates"]]
+            if search:
+                q = search.lower()
+                books = [b for b in books if q in b["title"].lower() or q in b["author"].lower()]
+            if publisher:
+                books = [b for b in books if b["publisher"] == publisher]
+            category = request.args.get("category") or None
+            if category:
+                books = [b for b in books if b["category"] == category]
+            total = len(books)
+            page  = books[offset: offset + LIMIT]
+            return jsonify({
+                "ok": True, "books": page, "count": len(page),
+                "offset": offset, "has_more": offset + LIMIT < total,
+            })
+
+        # Fallback: cache not yet ready → live API (no publisher filter available)
         raw_books = fetch_books(offset=offset, day=day, search=search)
         books = [normalise_book(b) for b in raw_books]
-
         return jsonify({
-            "ok": True,
-            "books": books,
-            "count": len(books),
-            "offset": offset,
-            "has_more": len(books) == LIMIT,
+            "ok": True, "books": books, "count": len(books),
+            "offset": offset, "has_more": len(books) == LIMIT,
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/publishers")
+def api_publishers():
+    """Return sorted list of all publisher names (from cache)."""
+    return jsonify({"ok": True, "publishers": _cache["publishers"]})
+
+
+@app.route("/api/categories")
+def api_categories():
+    """Return sorted list of all category names (from enrichment cache)."""
+    return jsonify({"ok": True, "categories": _cache["categories"]})
+
+
 @app.route("/api/dates")
 def api_dates():
-    """Derive available fair dates dynamically from the first page of books."""
+    """Derive available fair dates from cache (or first live page as fallback)."""
     try:
+        if _cache["ready"]:
+            all_dates = set()
+            for b in _cache["books"]:
+                all_dates.update(b["dates"])
+            return jsonify({"ok": True, "dates": sorted(all_dates)})
         raw_books = fetch_books(offset=0)
         all_dates = set()
         for b in raw_books:
@@ -135,6 +248,9 @@ def sw():
 def manifest():
     return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
 
+
+# Start background cache population immediately at import time
+threading.Thread(target=_populate_cache, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

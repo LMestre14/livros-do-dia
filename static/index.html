@@ -59,6 +59,15 @@
     /* ── Cached list count ── */
     #cached-count { display: none; padding: 8px 16px 0; font-size: .8rem; color: var(--muted); }
 
+    /* ── Category chip in modal ── */
+    .modal-category {
+      display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 12px;
+      background: #f0e8dc; color: #7a5a3a; font-size: .72rem; font-weight: 600;
+    }
+
+    /* ── Synopsis in modal ── */
+    .modal-synopsis { font-size: .88rem; line-height: 1.65; color: var(--dark); }
+
     /* ── Settings panel ── */
     #settings-panel { display: none; padding: 24px 20px; max-width: 600px; margin: 0 auto; }
     #settings-panel h2 { font-size: 1.1rem; margin-bottom: 20px; }
@@ -212,6 +221,63 @@
 
     footer { text-align: center; padding: 14px 14px 90px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0; }
     footer a { color: var(--red); text-decoration: none; }
+
+    /* ── Day-discount urgency badge ── */
+    .urgency-badge {
+      position: absolute; top: 8px; left: 8px; z-index: 1;
+      padding: 3px 7px; border-radius: 4px; font-size: .62rem; font-weight: 700; pointer-events: none;
+    }
+    .urgency-badge.last-day { background: #e74c3c; color: #fff; }
+    .urgency-badge.today    { background: #e67e22; color: #fff; }
+
+    /* ── Bought / Cart view ── */
+    #bought-panel { display: none; }
+    .bought-list { max-width: 700px; margin: 0 auto; padding: 12px 16px 170px; display: flex; flex-direction: column; gap: 12px; }
+    .bought-item {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 12px; display: flex; gap: 12px; align-items: flex-start; position: relative;
+    }
+    .bought-item-cover { width: 60px; flex-shrink: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.14); }
+    .bought-item-cover img, .bought-item-cover .no-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; font-size: 1.2rem; }
+    .bought-item-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .bought-item-title  { font-size: .9rem; font-weight: bold; line-height: 1.25; padding-right: 22px; }
+    .bought-item-author { font-size: .78rem; color: var(--muted); font-style: italic; }
+    .bought-item-remove {
+      position: absolute; top: 8px; right: 8px; background: none; border: none;
+      color: #ccc; font-size: 1rem; cursor: pointer; padding: 2px 5px; line-height: 1;
+    }
+    .bought-item-remove:hover { color: #e74c3c; }
+
+    .price-selector { display: flex; margin-top: 8px; border-radius: 8px; overflow: hidden; border: 1.5px solid #e0d0c0; }
+    .price-seg-btn {
+      flex: 1; padding: 6px 2px; border: none; background: #fafafa; font-family: inherit;
+      font-size: .65rem; cursor: pointer; color: var(--muted); border-right: 1px solid #e0d0c0;
+      line-height: 1.3; text-align: center; transition: all .12s;
+    }
+    .price-seg-btn:last-child { border-right: none; }
+    .price-seg-btn.active { background: var(--red); color: #fff; font-weight: 600; }
+    .price-seg-btn:disabled { opacity: .38; cursor: not-allowed; }
+    .price-seg-btn .seg-price { font-size: .73rem; font-weight: 600; display: block; }
+    .price-seg-btn.active .seg-price { color: rgba(255,255,255,.9); }
+
+    .custom-price-wrap { margin-top: 6px; }
+    .custom-price-input {
+      width: 100%; padding: 7px 10px; border-radius: 6px; border: 1.5px solid #d0c4b8;
+      font-size: .9rem; font-family: inherit; text-align: right; background: #fff;
+    }
+    .custom-price-input:focus { outline: none; border-color: var(--red); }
+
+    /* ── Cart footer ── */
+    #cart-footer {
+      display: block;
+      position: fixed; left: 0; right: 0;
+      bottom: calc(57px + env(safe-area-inset-bottom));
+      background: #fff; border-top: 2px solid #e8ddd0;
+      padding: 10px 20px; z-index: 15; display: none;
+    }
+    .cart-row { display: flex; justify-content: space-between; align-items: baseline; font-size: .9rem; padding: 2px 0; }
+    .cart-row.saved { color: var(--green); font-weight: 600; }
+    .cart-row.total { font-weight: bold; font-size: 1.05rem; border-top: 1px solid #e8ddd0; margin-top: 5px; padding-top: 7px; }
   </style>
 </head>
 <body>
@@ -225,11 +291,25 @@
   <select class="date-picker" id="date-picker">
     <option value="">Todos os dias</option>
   </select>
+  <select class="date-picker" id="publisher-picker">
+    <option value="">Todas as editoras</option>
+  </select>
+  <select class="date-picker" id="category-picker">
+    <option value="">Todas as categorias</option>
+  </select>
   <input class="search-box" type="search" id="search" placeholder="Pesquisar título ou autor…" />
 </div>
 
 <div id="cached-count"></div>
 <div class="grid" id="grid"></div>
+
+<div id="bought-panel">
+  <div class="bought-list" id="bought-list"></div>
+</div>
+<div id="cart-footer">
+  <div class="cart-row saved"><span>💰 Poupança</span><span id="cart-saved">0,00&nbsp;€</span></div>
+  <div class="cart-row total"><span>Total pago</span><span id="cart-total">0,00&nbsp;€</span></div>
+</div>
 
 <footer id="home-footer">
   Dados de <a href="https://feiradolivrodelisboa.pt" target="_blank" rel="noopener">feiradolivrodelisboa.pt</a>
@@ -279,6 +359,7 @@
         <div class="modal-title" id="modal-title"></div>
         <div class="modal-author" id="modal-author"></div>
         <div class="modal-pub" id="modal-pub"></div>
+        <div class="modal-category" id="modal-category" style="display:none"></div>
         <div class="modal-actions">
           <button class="modal-action-btn wishlist" id="modal-btn-wishlist">⭐ Lista</button>
           <button class="modal-action-btn bought" id="modal-btn-bought">✓ Comprado</button>
@@ -289,6 +370,11 @@
     <div class="modal-section">
       <h3>Preços</h3>
       <div class="modal-prices" id="modal-prices"></div>
+    </div>
+
+    <div class="modal-section" id="modal-synopsis-section" style="display:none">
+      <h3>Sinopse</h3>
+      <p class="modal-synopsis" id="modal-synopsis"></p>
     </div>
 
     <div class="modal-section">
@@ -337,8 +423,16 @@ let currentModalBook = null;
 // ── LocalStorage ──
 const STORAGE_KEY = 'fll_user_data';
 function loadUserData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { wishlist:{}, bought:{}, cachedBooks:{} }; }
-  catch { return { wishlist:{}, bought:{}, cachedBooks:{} }; }
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    return {
+      wishlist:     d.wishlist     || {},
+      bought:       d.bought       || {},
+      cachedBooks:  d.cachedBooks  || {},
+      boughtPrices: d.boughtPrices || {},
+    };
+  }
+  catch { return { wishlist:{}, bought:{}, cachedBooks:{}, boughtPrices:{} }; }
 }
 function saveUserData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(userData)); }
 let userData = loadUserData();
@@ -366,11 +460,23 @@ function toggleWishlist(id) {
 }
 function toggleBought(id) {
   const b = books.find(x => x.id === id) || userData.cachedBooks[id];
-  if (userData.bought[id]) { delete userData.bought[id]; }
-  else { userData.bought[id] = true; if (b) cacheBook(b); }
+  if (userData.bought[id]) {
+    delete userData.bought[id];
+    delete userData.boughtPrices[id];
+  } else {
+    userData.bought[id] = true;
+    if (b) {
+      cacheBook(b);
+      if (!userData.boughtPrices[id]) {
+        const type = b.pvp_dia > 0 ? 'dia' : (b.pvp_feira > 0 ? 'feira' : 'custom');
+        userData.boughtPrices[id] = { type, custom: 0 };
+      }
+    }
+  }
   saveUserData(); updateBadges();
   if (currentModalBook?.id === id) openModal(currentModalBook);
-  refreshGrid();
+  if (activeTab === 'bought') renderBoughtCart();
+  else refreshGrid();
 }
 
 // ── Date picker ──
@@ -387,6 +493,17 @@ async function buildDatePicker() {
     });
     if (data.dates.includes(todayStr)) { datePicker.value = todayStr; selectedDate = todayStr; }
   } catch (e) { console.error('dates error', e); }
+}
+
+// ── Day-discount urgency badge ──
+function getUrgencyBadge(b) {
+  if (!(b.pvp_dia > 0)) return '';
+  const dates = (b.dates || []).slice().sort();
+  if (!dates.includes(todayStr)) return '';
+  const isLastDay = dates[dates.length - 1] === todayStr;
+  return isLastDay
+    ? '<span class="urgency-badge last-day">🔥 Último dia!</span>'
+    : '<span class="urgency-badge today">⚡ Desconto hoje</span>';
 }
 
 // ── Card rendering ──
@@ -407,7 +524,7 @@ function makeCard(b) {
   if (hasFeira && !hasDia) prices += `<div class="price-row"><span class="price-label">Feira</span><span class="price-val green">${fmt(b.pvp_feira)}</span></div>`;
   if (hasDia) prices += `<div class="price-row"><span class="price-label">Livro do Dia</span><span class="price-val green">${fmt(b.pvp_dia)}</span></div>`;
   prices += '</div>';
-  card.innerHTML = `${badge}${img}
+  card.innerHTML = `${badge}${getUrgencyBadge(b)}${img}
     <div class="card-body">
       <div class="card-title">${esc(b.title)}</div>
       <div class="card-author">${esc(b.author)}</div>
@@ -463,8 +580,10 @@ async function fetchBooks(reset = false) {
   loading = true; renderBooks();
   try {
     const params = new URLSearchParams({ offset });
-    if (selectedDate) params.set('day', selectedDate);
-    if (searchTerm)   params.set('search', searchTerm);
+    if (selectedDate)      params.set('day', selectedDate);
+    if (searchTerm)        params.set('search', searchTerm);
+    if (selectedPublisher) params.set('publisher', selectedPublisher);
+    if (selectedCategory)  params.set('category',  selectedCategory);
     const data = await fetch('/api/books?' + params).then(r => r.json());
     if (!data.ok) throw new Error(data.error);
     const seen = new Set(books.map(b => b.id));
@@ -479,21 +598,154 @@ async function fetchBooks(reset = false) {
   }
 }
 
-function showCachedBooks(filter) {
-  const ids = Object.keys(filter === 'wishlist' ? userData.wishlist : userData.bought);
-  const total = ids.map(id => userData.cachedBooks[id]).filter(Boolean).length;
-  let list = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+function populateCachedPublisherPicker(allBooks) {
+  const current = publisherPicker.value;
+  while (publisherPicker.options.length > 1) publisherPicker.remove(1);
+  const pubs = [...new Set(allBooks.map(b => b.publisher).filter(Boolean))].sort();
+  pubs.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name.replace(/&amp;/g, '&').replace(/&#8217;/g, '\u2019');
+    publisherPicker.appendChild(opt);
+  });
+  publisherPicker.value = pubs.includes(current) ? current : '';
+  selectedPublisher = publisherPicker.value;
+}
+
+function populateCachedCategoryPicker(allBooks) {
+  const current = categoryPicker.value;
+  while (categoryPicker.options.length > 1) categoryPicker.remove(1);
+  const cats = [...new Set(allBooks.map(b => b.category).filter(Boolean))].sort();
+  cats.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = name;
+    categoryPicker.appendChild(opt);
+  });
+  categoryPicker.value = cats.includes(current) ? current : '';
+  selectedCategory = categoryPicker.value;
+}
+
+function showCachedBooks(type) {
+  const ids = Object.keys(type === 'wishlist' ? userData.wishlist : userData.bought);
+  const allBooks = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+  const total = allBooks.length;
+
+  populateCachedPublisherPicker(allBooks);
+  populateCachedCategoryPicker(allBooks);
+
+  let list = [...allBooks];
   if (searchTerm) {
     const q = searchTerm.toLowerCase();
     list = list.filter(b => b.title.toLowerCase().includes(q) || (b.author||'').toLowerCase().includes(q));
   }
-  if (selectedDate) {
-    list = list.filter(b => (b.dates || []).includes(selectedDate));
-  }
+  if (selectedDate)      list = list.filter(b => (b.dates||[]).includes(selectedDate));
+  if (selectedPublisher) list = list.filter(b => b.publisher === selectedPublisher);
+  if (selectedCategory)  list = list.filter(b => b.category  === selectedCategory);
+
   const countEl = document.getElementById('cached-count');
   countEl.style.display = '';
   countEl.textContent = `A mostrar ${list.length} de ${total}`;
   books = list; hasMore = false; renderBooks();
+}
+
+// ── Bought / Cart ──
+function defaultPriceType(b) {
+  if (b.pvp_dia > 0)    return 'dia';
+  if (b.pvp_feira > 0)  return 'feira';
+  return 'custom';
+}
+
+function getBoughtPrice(b) {
+  const p = userData.boughtPrices[b.id] || {};
+  const type = p.type || defaultPriceType(b);
+  if (type === 'dia'   && b.pvp_dia   > 0) return b.pvp_dia;
+  if (type === 'feira' && b.pvp_feira > 0) return b.pvp_feira;
+  if (type === 'custom') return parseFloat(p.custom) || 0;
+  return b.pvp_dia > 0 ? b.pvp_dia : (b.pvp_feira > 0 ? b.pvp_feira : 0);
+}
+
+function updateCartFooter() {
+  const ids = Object.keys(userData.bought);
+  const allBooks = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+  let total = 0, pvpTotal = 0;
+  allBooks.forEach(b => { total += getBoughtPrice(b); pvpTotal += b.pvp || 0; });
+  document.getElementById('cart-total').textContent = fmt(total);
+  document.getElementById('cart-saved').textContent = fmt(Math.max(0, pvpTotal - total));
+  console.log('books 1', allBooks);
+  if (!allBooks.length) {
+    document.getElementById('cart-footer').style.display = 'none';
+  }
+}
+
+function setPriceType(id, type) {
+  if (!userData.boughtPrices[id]) userData.boughtPrices[id] = { type, custom: 0 };
+  else userData.boughtPrices[id].type = type;
+  saveUserData();
+  const item = document.querySelector(`.bought-item[data-id="${id}"]`);
+  if (item) {
+    item.querySelectorAll('.price-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+    item.querySelector('.custom-price-wrap').style.display = type === 'custom' ? '' : 'none';
+  }
+  updateCartFooter();
+}
+
+function renderBoughtCart() {
+  const ids = Object.keys(userData.bought);
+  const allBooks = ids.map(id => userData.cachedBooks[id]).filter(Boolean);
+  const listEl = document.getElementById('bought-list');
+  listEl.innerHTML = '';
+  if (!allBooks.length) {
+    listEl.innerHTML = '<p class="state-msg">Nenhum livro comprado ainda.</p>';
+    document.getElementById('cart-footer').style.display = 'none';
+    return;
+  }
+  allBooks.forEach(b => {
+    const p    = userData.boughtPrices[b.id] || { type: defaultPriceType(b), custom: 0 };
+    const type = p.type;
+    const hasDia = b.pvp_dia > 0, hasFeira = b.pvp_feira > 0;
+    const coverSrc = b.cover_jpg || b.cover_webp;
+    const img = coverSrc
+      ? `<img src="${esc(coverSrc)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=no-cover>📖</div>'">`
+      : `<div class="no-cover">📖</div>`;
+
+    const item = document.createElement('div');
+    item.className = 'bought-item'; item.dataset.id = b.id;
+    item.innerHTML = `
+      <div class="bought-item-cover">${img}</div>
+      <div class="bought-item-info">
+        <div class="bought-item-title">${esc(b.title)}</div>
+        <div class="bought-item-author">${esc(b.author)}</div>
+        <div class="price-selector">
+          <button class="price-seg-btn${type==='feira'?' active':''}" data-type="feira"${!hasFeira?' disabled':''}>
+            Feira<span class="seg-price">${hasFeira ? fmt(b.pvp_feira) : '—'}</span>
+          </button>
+          <button class="price-seg-btn${type==='dia'?' active':''}" data-type="dia"${!hasDia?' disabled':''}>
+            Livro do Dia<span class="seg-price">${hasDia ? fmt(b.pvp_dia) : '—'}</span>
+          </button>
+          <button class="price-seg-btn${type==='custom'?' active':''}" data-type="custom">
+            Personalizado<span class="seg-price">&nbsp;</span>
+          </button>
+        </div>
+        <div class="custom-price-wrap" style="${type==='custom'?'':'display:none'}">
+          <input type="number" class="custom-price-input" min="0" step="0.01"
+            placeholder="0.00" value="${p.custom || ''}">
+        </div>
+      </div>
+      <button class="bought-item-remove" title="Remover">✕</button>`;
+
+    item.querySelectorAll('.price-seg-btn:not([disabled])').forEach(btn =>
+      btn.addEventListener('click', () => setPriceType(b.id, btn.dataset.type)));
+
+    item.querySelector('.custom-price-input').addEventListener('input', e => {
+      if (!userData.boughtPrices[b.id]) userData.boughtPrices[b.id] = { type: 'custom', custom: 0 };
+      userData.boughtPrices[b.id].custom = parseFloat(e.target.value) || 0;
+      saveUserData(); updateCartFooter();
+    });
+
+    item.querySelector('.bought-item-remove').addEventListener('click', () => toggleBought(b.id));
+    listEl.appendChild(item);
+  });
+  updateCartFooter();
 }
 
 function applyFilters() {
@@ -599,6 +851,18 @@ function openModal(b) {
   document.getElementById('modal-author').textContent = b.author;
   document.getElementById('modal-pub').textContent = b.chancela || b.publisher;
 
+  const catEl = document.getElementById('modal-category');
+  if (b.category) {
+    catEl.textContent = b.parent_category && b.parent_category !== b.category
+      ? `${b.parent_category} › ${b.category}` : b.category;
+    catEl.style.display = '';
+  } else { catEl.style.display = 'none'; }
+
+  const synEl  = document.getElementById('modal-synopsis');
+  const synSec = document.getElementById('modal-synopsis-section');
+  if (b.synopsis) { synEl.textContent = b.synopsis; synSec.style.display = ''; }
+  else { synSec.style.display = 'none'; }
+
   const wBtn = document.getElementById('modal-btn-wishlist');
   const bBtn = document.getElementById('modal-btn-bought');
   wBtn.className = `modal-action-btn wishlist${isWishlist?' active':''}`;
@@ -676,29 +940,50 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
 
-  const toolbar  = document.getElementById('main-toolbar');
-  const footer   = document.getElementById('home-footer');
-  const grid     = document.getElementById('grid');
-  const settings = document.getElementById('settings-panel');
-  const isContent = tab !== 'settings';
+  const toolbar      = document.getElementById('main-toolbar');
+  const footer       = document.getElementById('home-footer');
+  const grid         = document.getElementById('grid');
+  const settings     = document.getElementById('settings-panel');
+  const boughtPanel  = document.getElementById('bought-panel');
+  const cartFooter   = document.getElementById('cart-footer');
+  const isContent    = tab !== 'settings';
 
-  toolbar.style.display  = isContent ? '' : 'none';
-  footer.style.display   = tab === 'home' ? '' : 'none';
-  settings.style.display = isContent ? 'none' : 'block';
-  grid.style.display     = isContent ? '' : 'none';
-
+  toolbar.style.display     = (isContent && tab !== 'bought') ? '' : 'none';
+  footer.style.display      = tab === 'home' ? '' : 'none';
+  settings.style.display    = isContent ? 'none' : 'block';
+  grid.style.display        = (isContent && tab !== 'bought') ? '' : 'none';
+  boughtPanel.style.display = tab === 'bought' ? 'block' : 'none';
+  if (tab !== 'bought') cartFooter.style.display = 'none';
   if (tab === 'home') {
     showWishlistOnly = showBoughtOnly = false;
     document.getElementById('cached-count').style.display = 'none';
+    // Restore full publisher + category lists and reset selections
+    selectedPublisher = ''; publisherPicker.value = '';
+    selectedCategory  = ''; categoryPicker.value  = '';
+    while (publisherPicker.options.length > 1) publisherPicker.remove(1);
+    while (categoryPicker.options.length  > 1) categoryPicker.remove(1);
+    allPublishers.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name.replace(/&amp;/g, '&').replace(/&#8217;/g, '\u2019');
+      publisherPicker.appendChild(opt);
+    });
+    allCategories.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      categoryPicker.appendChild(opt);
+    });
     fetchBooks(true);
   } else if (tab === 'wishlist') {
     showWishlistOnly = true; showBoughtOnly = false;
     selectedDate = ''; datePicker.value = '';
+    selectedPublisher = ''; publisherPicker.value = '';
+    selectedCategory  = ''; categoryPicker.value  = '';
     showCachedBooks('wishlist');
   } else if (tab === 'bought') {
-    showBoughtOnly = true; showWishlistOnly = false;
-    selectedDate = ''; datePicker.value = '';
-    showCachedBooks('bought');
+    showBoughtOnly = false; showWishlistOnly = false;
+    document.getElementById('cached-count').style.display = 'none';
+    renderBoughtCart();
   } else if (tab === 'settings') {
     updateBadges();
   }
@@ -731,10 +1016,51 @@ grid.addEventListener('click', e => {
   }
 });
 
+// ── Publisher picker ──
+const publisherPicker = document.getElementById('publisher-picker');
+const categoryPicker  = document.getElementById('category-picker');
+let selectedPublisher = '';
+let selectedCategory  = '';
+let allPublishers = [];
+let allCategories = [];
+
+async function buildPublisherPicker() {
+  try {
+    const data = await fetch('/api/publishers').then(r => r.json());
+    if (!data.ok || !data.publishers.length) return;
+    allPublishers = data.publishers;
+    allPublishers.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name.replace(/&amp;/g, '&').replace(/&#8217;/g, '\u2019');
+      publisherPicker.appendChild(opt);
+    });
+  } catch (_) {}
+}
+
+async function buildCategoryPicker() {
+  try {
+    const data = await fetch('/api/categories').then(r => r.json());
+    if (!data.ok || !data.categories.length) return;
+    allCategories = data.categories;
+    allCategories.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      categoryPicker.appendChild(opt);
+    });
+  } catch (_) {}
+}
+
+publisherPicker.addEventListener('change', () => { selectedPublisher = publisherPicker.value; applyFilters(); });
+categoryPicker.addEventListener('change',  () => { selectedCategory  = categoryPicker.value;  applyFilters(); });
+
 // ── Init ──
 setupInfiniteScroll();
 updateBadges();
-buildDatePicker().then(() => fetchBooks(true));
+buildDatePicker()
+  .then(() => buildPublisherPicker())
+  .then(() => buildCategoryPicker())
+  .then(() => fetchBooks(true));
 
 // ── Service Worker ──
 if ('serviceWorker' in navigator) {
