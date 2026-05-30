@@ -15,6 +15,7 @@
     :root {
       --red: #c0392b; --cream: #fdf6ed; --green: #27ae60; --gold: #f39c12;
       --dark: #1a1a1a; --muted: #6b6b6b; --shadow: 0 4px 18px rgba(0,0,0,.09); --radius: 14px;
+      --tab-bar-height: 54px;
     }
     body { font-family: 'Georgia', serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
 
@@ -42,6 +43,7 @@
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
       display: flex; background: #fff; border-top: 1px solid #e8ddd0;
       padding-bottom: env(safe-area-inset-bottom);
+      height: var(--tab-bar-height);
     }
     .tab-btn {
       flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -219,7 +221,10 @@
       100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
     }
 
-    footer { text-align: center; padding: 14px 14px 90px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0; }
+    footer {
+      position: fixed; width: 100vw; bottom: var(--tab-bar-height); text-align: center;
+      padding: 14px 14px; font-size: .75rem; color: var(--muted); border-top: 1px solid #e8ddd0;
+    }
     footer a { color: var(--red); text-decoration: none; }
 
     /* ── Day-discount urgency badge ── */
@@ -242,6 +247,7 @@
     .bought-item-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .bought-item-title  { font-size: .9rem; font-weight: bold; line-height: 1.25; padding-right: 22px; }
     .bought-item-author { font-size: .78rem; color: var(--muted); font-style: italic; }
+    .bought-item-pvp { font-size: .78rem; font-weight: bold; }
     .bought-item-remove {
       position: absolute; top: 8px; right: 8px; background: none; border: none;
       color: #ccc; font-size: 1rem; cursor: pointer; padding: 2px 5px; line-height: 1;
@@ -269,7 +275,6 @@
 
     /* ── Cart footer ── */
     #cart-footer {
-      display: block;
       position: fixed; left: 0; right: 0;
       bottom: calc(57px + env(safe-area-inset-bottom));
       background: #fff; border-top: 2px solid #e8ddd0;
@@ -307,7 +312,7 @@
   <div class="bought-list" id="bought-list"></div>
 </div>
 <div id="cart-footer">
-  <div class="cart-row saved"><span>💰 Poupança</span><span id="cart-saved">0,00&nbsp;€</span></div>
+  <div class="cart-row saved"><span>💰 Poupança (PVP - Preço Pago)</span><span id="cart-saved">0,00&nbsp;€</span></div>
   <div class="cart-row total"><span>Total pago</span><span id="cart-total">0,00&nbsp;€</span></div>
 </div>
 
@@ -391,7 +396,7 @@
       <h3>Mapa da Feira</h3>
       <div class="map-wrap" id="map-wrap">
         <img class="map-img" id="map-img"
-          src="https://feiradolivrodelisboa.pt/_fll/wp-content/themes/feiradolivrodelisboa/assets/imgs/mapa2026_v5.svg"
+          src="/static/mapa2026.svg"
           alt="Mapa da Feira do Livro 2026" loading="lazy" />
         <!-- Pin overlay — positioned by JS using the same formula as mapa.js -->
         <div class="map-pin" id="map-pin">
@@ -671,10 +676,7 @@ function updateCartFooter() {
   allBooks.forEach(b => { total += getBoughtPrice(b); pvpTotal += b.pvp || 0; });
   document.getElementById('cart-total').textContent = fmt(total);
   document.getElementById('cart-saved').textContent = fmt(Math.max(0, pvpTotal - total));
-  console.log('books 1', allBooks);
-  if (!allBooks.length) {
-    document.getElementById('cart-footer').style.display = 'none';
-  }
+  document.getElementById('cart-footer').style.display = !allBooks.length ? 'none' : 'block';
 }
 
 function setPriceType(id, type) {
@@ -698,6 +700,8 @@ function renderBoughtCart() {
     listEl.innerHTML = '<p class="state-msg">Nenhum livro comprado ainda.</p>';
     document.getElementById('cart-footer').style.display = 'none';
     return;
+  } else {
+    document.getElementById('cart-footer').style.display = 'block';
   }
   allBooks.forEach(b => {
     const p    = userData.boughtPrices[b.id] || { type: defaultPriceType(b), custom: 0 };
@@ -713,8 +717,9 @@ function renderBoughtCart() {
     item.innerHTML = `
       <div class="bought-item-cover">${img}</div>
       <div class="bought-item-info">
-        <div class="bought-item-title">${esc(b.title)}</div>
-        <div class="bought-item-author">${esc(b.author)}</div>
+        <span class="bought-item-title">${esc(b.title)}</span>
+        <span class="bought-item-author">${esc(b.author)}</span>
+        <span class="bought-item-pvp">PVP ${fmt(b.pvp)}</span>
         <div class="price-selector">
           <button class="price-seg-btn${type==='feira'?' active':''}" data-type="feira"${!hasFeira?' disabled':''}>
             Feira<span class="seg-price">${hasFeira ? fmt(b.pvp_feira) : '—'}</span>
@@ -953,7 +958,7 @@ function switchTab(tab) {
   settings.style.display    = isContent ? 'none' : 'block';
   grid.style.display        = (isContent && tab !== 'bought') ? '' : 'none';
   boughtPanel.style.display = tab === 'bought' ? 'block' : 'none';
-  if (tab !== 'bought') cartFooter.style.display = 'none';
+  cartFooter.style.display = tab !== 'bought' ? 'none' : 'block';
   if (tab === 'home') {
     showWishlistOnly = showBoughtOnly = false;
     document.getElementById('cached-count').style.display = 'none';
