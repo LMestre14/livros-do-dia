@@ -6,7 +6,7 @@ const PRECACHE = [
   '/static/manifest.json',
   '/static/icon-192.png',
   '/static/icon-512.png',
-  'https://feiradolivrodelisboa.pt/_fll/wp-content/themes/feiradolivrodelisboa/assets/imgs/mapa2026_v5.svg',
+  '/static/mapa2026.svg',
 ];
 
 self.addEventListener('install', e => {
